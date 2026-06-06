@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>University Sports Registration Portal</title>
+  <style>
+    :root{
+        /* colorful, warm-to-cool gradient background */
+        --bg: linear-gradient(135deg, #fff0f6 0%, #ffedd5 30%, #eef2ff 100%);
+        /* slightly translucent card to let the background glow through */
+        --card: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.85));
+        --muted: #475569;        /* soft slate for secondary text */
+        --accent: #0b1220;       /* dark text for good contrast */
+        --primary: #06b6d4;      /* vibrant teal for main actions */
+        --secondary: #7c3aed;    /* complementary purple for accents */
+        --danger: #ef4444;       /* red for destructive actions */
+        --success: #10b981;      /* green for success states */
+        --glass: rgba(255,255,255,0.6);
+        --shadow: 0 8px 24px rgba(11,22,56,0.08);
+
+        /* admin UI specifics */
+        --overlay: rgba(3,7,18,0.6);
+        --modal-width: 520px;
+        --admin-panel-width: 420px;
+        --sport-input-width: 280px;
+        --sport-btn-bg: #7c3aed;
+        --sport-btn-color: #ffffff;
+        --muted-2: #6b7280;
+    }
+    
+
+    /* Admin inline-edit affordances */
+    #adminTable tbody tr td {
+      vertical-align: middle;
+    }
+    /* editable cells: make it obvious they're editable when admin view is open */
+    #adminTable td[contenteditable="true"]{
+      background: linear-gradient(180deg, rgba(6,182,212,0.03), rgba(124,58,237,0.02));
+      border-radius:6px;
+      padding:6px;
+      min-width:80px;
+      outline: none;
+      transition: box-shadow .12s, background .12s;
+    }
+    #adminTable td[contenteditable="true"]:focus{
+      box-shadow: 0 0 0 3px rgba(6,182,212,0.08);
+      background: #fff;
+    }
+
+    /* small icon/action buttons in admin rows */
+    .admin-actions{ display:flex; gap:6px; align-items:center; }
+    .admin-actions .btn{ padding:6px 8px; font-size:13px; border-radius:8px; }
+    .icon-btn{ background:transparent; border:1px solid #e6e9ef; color:var(--muted); padding:6px 8px; border-radius:8px; cursor:pointer }
+    .icon-btn:hover{ border-color:var(--primary); color:var(--primary) }
+
+    /* Add/Edit modal (hidden by default) */
+    .modal-overlay{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:var(--overlay); z-index:60; padding:18px }
+    .modal-overlay.show{ display:flex }
+    .modal{
+      width:var(--modal-width);
+      max-width:100%;
+      background:var(--card);
+      padding:18px;
+      border-radius:12px;
+      box-shadow:var(--shadow);
+      color:var(--accent);
+    }
+    .modal h3{ margin:0 0 12px 0; font-size:16px }
+    .modal .form-row{ display:flex; gap:8px; margin-bottom:10px }
+    .modal .form-row .col{ flex:1 }
+    .modal input[type="text"], .modal input[type="email"], .modal select, .modal textarea{
+      width:100%; padding:8px; border:1px solid #e6e9ef; border-radius:8px; font-size:14px;
+    }
+    .modal .actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:12px }
+
+    /* Inline small save/cancel state next to row */
+    .row-saver{ display:inline-flex; gap:6px; align-items:center; }
+    .row-saver .btn{ padding:6px 8px; font-size:13px }
+
+    /* Visual hint in admin header area */
+    #adminCard .muted.small{ opacity:0.9 }
+    #adminCard .admin-tools input{ min-width:160px }
+
+    /* responsive niceties for admin forms/table on small screens */
+    @media (max-width:640px){
+      .modal{ padding:14px }
+      #adminTable thead{ display:none }
+      #adminTable tbody tr{ display:block; margin-bottom:10px; border:1px solid #f1f5f9; border-radius:8px; padding:8px }
+      #adminTable tbody tr td{ display:flex; justify-content:space-between; padding:6px 0; border-bottom: none }
+      .admin-actions{ justify-content:flex-end }
+    }
+
+    /* subtle focus styles for accessibility */
+    button:focus, input:focus, textarea:focus { outline: 3px solid rgba(6,182,212,0.08); outline-offset:2px }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;background:var(--bg);color:var(--accent);-webkit-font-smoothing:antialiased}
+    .container{max-width:1100px;margin:28px auto;padding:18px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    h1{font-size:20px;margin:0}
+    .btn{background:var(--primary);color:#fff;padding:8px 12px;border-radius:8px;border:0;cursor:pointer}
+    .btn.secondary{background:#fff;color:var(--primary);border:1px solid #d1d5db}
+    .layout{display:grid;grid-template-columns:1fr;gap:16px}
+    @media(min-width:880px){ .layout{grid-template-columns:1fr 420px} }
+    .card{background:var(--card);padding:14px;border-radius:10px;box-shadow:0 6px 16px rgba(15,23,42,0.06)}
+    .grid{display:grid;gap:12px}
+    .sports-grid{display:grid;grid-template-columns:1fr;gap:12px}
+    @media(min-width:640px){ .sports-grid{grid-template-columns:repeat(2,1fr)} }
+    @media(min-width:1024px){ .sports-grid{grid-template-columns:repeat(3,1fr)} }
+    .sport-card{border:1px solid #e6e9ef;padding:10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:150px}
+    .sport-title{font-weight:600;margin-bottom:6px}
+    .muted{color:var(--muted);font-size:13px}
+    .small{font-size:13px}
+    form .field{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+    input[type="text"], input[type="email"], select, textarea{padding:8px;border:1px solid #e6e9ef;border-radius:8px}
+    .checkboxes{display:flex;flex-direction:column;gap:8px;max-height:180px;overflow:auto;padding-right:6px}
+    .total{font-weight:700;margin-top:8px}
+    .admin-tools{display:flex;gap:8px;align-items:center}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th, td{padding:8px;border-bottom:1px solid #eef2f7;text-align:left}
+    th{background:#fbfdff;font-weight:600}
+    .muted-center{text-align:center;color:var(--muted)}
+    .danger{color:var(--danger);cursor:pointer;border:0;background:transparent}
+    .search{display:flex;gap:8px;align-items:center}
+    .pill{display:inline-block;background:#eef2ff;padding:6px 10px;border-radius:999px;font-size:13px}
+    footer{margin-top:18px;text-align:center;color:var(--muted);font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>University Sports Registration Portal</h1>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div class="pill" id="nowDate"></div>
+        <button class="btn" id="toggleViewBtn">Switch to Admin View</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <!-- Left / main column -->
+      <div class="grid">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <h2 style="margin:0;font-size:16px">Available Sports</h2>
+            <div class="muted small">Click a sport's Apply to pre-select it in the form</div>
+          </div>
+
+          <div class="sports-grid" id="sportsList">
+            <!-- JS populated -->
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 style="margin:0 0 10px 0;font-size:16px">Upcoming Sports Events</h2>
+          <div id="upcomingList" class="grid">
+            <!-- JS populated -->
+          </div>
+        </div>
+
+        <div class="card" id="formCard">
+          <h2 style="font-size:16px;margin:0 0 10px 0">Registration Form</h2>
+          <form id="regForm">
+            <div class="field">
+              <label class="small">Full Name</label>
+              <input type="text" id="studentName" required />
+            </div>
+            <div class="field">
+              <label class="small">Roll Number</label>
+              <input type="text" id="studentRoll" required />
+            </div>
+            <div class="field">
+              <label class="small">Email</label>
+              <input type="email" id="studentEmail" required />
+            </div>
+            <div class="field">
+              <label class="small">Select Sports (you may pick multiple)</label>
+              <div class="checkboxes" id="sportCheckboxes">
+                <!-- JS populated -->
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <div>
+                <div class="muted small">Total fee:</div>
+                <div class="total" id="totalFee">₹0</div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button type="reset" class="btn secondary" id="resetBtn">Reset</button>
+                <button type="submit" class="btn">Submit Registration</button>
+              </div>
+            </div>
+            <div class="muted small" style="margin-top:10px">Registrations are saved in your browser. Export from Admin view if needed.</div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Right / sidebar -->
+      <div class="grid">
+        <div class="card">
+          <h3 style="margin:0 0 8px 0">Quick Info</h3>
+          <div class="muted small">See fees, prize money and certification for every sport. Upcoming events are listed below.</div>
+          <hr style="margin:12px 0;border:none;border-top:1px solid #f1f5f9" />
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div><strong>Total registered:</strong> <span id="totalRegs">0</span></div>
+            <div><strong>Distinct sports:</strong> <span id="distinctSports">0</span></div>
+            <div class="muted small">Admin can search and remove registrations; export as CSV.</div>
+          </div>
+        </div>
+
+        <div class="card" id="adminCard" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <h3 style="margin:0;font-size:16px">Admin Dashboard</h3>
+            <div class="admin-tools">
+              <input id="adminSearch" placeholder="Search name / roll / sport" style="padding:6px;border-radius:8px;border:1px solid #e6e9ef" />
+              <button class="btn secondary" id="exportCsvBtn">Export CSV</button>
+            </div>
+          </div>
+          <div id="adminListWrap" style="max-height:420px;overflow:auto">
+            <table id="adminTable">
+              <thead>
+                <tr><th>Name</th><th>Roll</th><th>Sports</th><th>Email</th><th>When</th><th>Action</th></tr>
+              </thead>
+              <tbody id="adminTbody">
+                <!-- JS populated -->
+              </tbody>
+            </table>
+            <div class="muted-center" id="noRegsMsg" style="display:none;padding:10px">No registrations yet.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin:0 0 8px 0">Admin Access</h3>
+          <div class="muted small">Toggle Admin view with the button at top. This demo uses a simple toggle (no auth).</div>
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <button class="btn secondary" id="clearAllBtn">Clear All Registrations</button>
+            <button class="btn secondary" id="importBtn">Import CSV</button>
+            <input type="file" id="csvFileInput" accept=".csv" style="display:none" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      Built for the university. Local demo — connect to a backend to make it production-ready.
+    </footer>
+  </div>
+
+<script>
+  // Data: current sports (with fee/prize/certification) and upcoming events
+  const sportsList = [
+    { id: "cricket", name: "Cricket", date: "2025-11-10", location: "Main Ground", fee: 300, prize: "₹10,000", certification: "Winner & Participation Certificates" },
+    { id: "football", name: "Football", date: "2025-11-12", location: "Stadium Field", fee: 250, prize: "₹8,000", certification: "Winner & Participation Certificates" },
+    { id: "badminton", name: "Badminton", date: "2025-11-14", location: "Indoor Court 2", fee: 200, prize: "₹5,000", certification: "Winner & Participation Certificates" },
+    { id: "tabletennis", name: "Table Tennis", date: "2025-11-15", location: "Hall A", fee: 150, prize: "₹3,000", certification: "Winner & Participation Certificates" },
+    { id: "athletics", name: "Athletics", date: "2025-11-18", location: "Track Area", fee: 100, prize: "₹6,000", certification: "Winner & Participation Certificates" }
+  ];
+
+  const upcomingSports = [
+    { id: "basketball", name: "Basketball", date: "2025-12-01", location: "Court 3", details: "Inter-departmental tournament with knockout rounds." },
+    { id: "volleyball", name: "Volleyball", date: "2025-12-05", location: "Ground B", details: "Mixed team matches with semifinals and finals." },
+    { id: "swimming", name: "Swimming", date: "2025-12-10", location: "Aquatic Center", details: "Freestyle and relay events open to all students." },
+    { id: "chess", name: "Chess", date: "2025-12-12", location: "Hall B", details: "Rapid chess competition open to all skill levels." }
+  ];
+
+  // Storage key
+  const STORAGE_KEY = 'uni_sports_regs_v1';
+
+  // Utilities
+  function uid() { return Math.random().toString(36).slice(2,9) }
+
+  function loadRegs(){ try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch(e){ return [] } }
+  function saveRegs(arr){ localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)) }
+
+  // DOM refs
+  const sportsListEl = document.getElementById('sportsList');
+  const upcomingListEl = document.getElementById('upcomingList');
+  const sportCheckboxes = document.getElementById('sportCheckboxes');
+  const totalFeeEl = document.getElementById('totalFee');
+  const regForm = document.getElementById('regForm');
+  const studentName = document.getElementById('studentName');
+  const studentRoll = document.getElementById('studentRoll');
+  const studentEmail = document.getElementById('studentEmail');
+  const totalRegsEl = document.getElementById('totalRegs');
+  const distinctSportsEl = document.getElementById('distinctSports');
+  const toggleViewBtn = document.getElementById('toggleViewBtn');
+  const adminCard = document.getElementById('adminCard');
+  const adminTbody = document.getElementById('adminTbody');
+  const adminSearch = document.getElementById('adminSearch');
+  const exportCsvBtn = document.getElementById('exportCsvBtn');
+  const clearAllBtn = document.getElementById('clearAllBtn');
+  const importBtn = document.getElementById('importBtn');
+  const csvFileInput = document.getElementById('csvFileInput');
+  const nowDatePill = document.getElementById('nowDate');
+  const noRegsMsg = document.getElementById('noRegsMsg');
+
+  // init
+  nowDatePill.textContent = new Date().toLocaleDateString();
+
+  function renderSports(){
+    sportsListEl.innerHTML = '';
+    sportsList.forEach(s => {
+      const div = document.createElement('div');
+      div.className = 'sport-card';
+      div.innerHTML = `
+        <div>
+          <div class="sport-title">${s.name}</div>
+          <div class="muted small">Date: ${s.date}</div>
+          <div class="muted small">Location: ${s.location}</div>
+          <div class="muted small">Fee: ₹${s.fee} • Prize: ${s.prize}</div>
+          <div class="muted small">Certification: ${s.certification}</div>
+        </div>
+        <div style="display:flex;justify-content:flex-end">
+          <button class="btn secondary applyBtn" data-id="${s.id}">Apply</button>
+        </div>
+      `;
+      sportsListEl.appendChild(div);
+    });
+
+    // hook apply buttons
+    document.querySelectorAll('.applyBtn').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        const id = e.currentTarget.dataset.id;
+        // select checkbox for that sport if present
+        const cb = document.querySelector('#sportCheckboxes input[data-id="'+id+'"]');
+        if(cb){ cb.checked = true; updateTotal() ; cb.scrollIntoView({behavior:'smooth', block:'center'}) }
+      });
+    });
+  }
+
+  function renderUpcoming(){
+    upcomingListEl.innerHTML = '';
+    upcomingSports.forEach(s=>{
+      const d = document.createElement('div');
+      d.className = 'card';
+      d.style.padding = '10px';
+      d.innerHTML = `<div style="font-weight:600">${s.name}</div>
+                     <div class="muted small">Date: ${s.date} • ${s.location}</div>
+                     <div class="muted small" style="margin-top:6px">${s.details}</div>`;
+      upcomingListEl.appendChild(d);
+    });
+  }
+
+  function renderCheckboxes(){
+    sportCheckboxes.innerHTML = '';
+    sportsList.forEach(s=>{
+      const row = document.createElement('label');
+      row.style.display = 'flex';
+      row.style.gap = '8px';
+      row.style.alignItems = 'center';
+      row.innerHTML = `<input type="checkbox" data-id="${s.id}" data-fee="${s.fee}" /> 
+                       <div style="flex:1">
+                         <div style="font-weight:600">${s.name} <span class="muted small"> (₹${s.fee})</span></div>
+                         <div class="muted small">${s.prize} • ${s.certification}</div>
+                       </div>`;
+      sportCheckboxes.appendChild(row);
+    });
+
+    // when anything changes
+    sportCheckboxes.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+      cb.addEventListener('change', updateTotal);
+    });
+  }
+
+  function getSelectedSports(){
+    const checked = Array.from(sportCheckboxes.querySelectorAll('input[type=checkbox]:checked'));
+    return checked.map(cb => {
+      const id = cb.dataset.id;
+      return sportsList.find(s => s.id === id) || { id, name: cb.parentNode.textContent.trim(), fee: Number(cb.dataset.fee || 0) };
+    });
+  }
+
+  function updateTotal(){
+    const sel = getSelectedSports();
+    const total = sel.reduce((acc,s)=>acc + Number(s.fee || 0), 0);
+    totalFeeEl.textContent = '₹' + total;
+  }
+
+  // registrations management
+  function renderAdminList(filter = ''){
+    const regs = loadRegs();
+    const filtered = regs.filter(r => {
+      const q = filter.trim().toLowerCase();
+      if(!q) return true;
+      return r.name.toLowerCase().includes(q) || r.roll.toLowerCase().includes(q) || r.sports.join(',').toLowerCase().includes(q);
+    });
+
+    adminTbody.innerHTML = '';
+    if(filtered.length === 0){
+      noRegsMsg.style.display = 'block';
+      document.getElementById('adminTable').style.display = 'none';
+    } else {
+      noRegsMsg.style.display = 'none';
+      document.getElementById('adminTable').style.display = 'table';
+      filtered.forEach(r=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${escapeHtml(r.name)}</td>
+                        <td>${escapeHtml(r.roll)}</td>
+                        <td>${escapeHtml(r.sports.join(', '))}</td>
+                        <td>${escapeHtml(r.email)}</td>
+                        <td>${new Date(r.when).toLocaleString()}</td>
+                        <td><button class="danger" data-id="${r.id}">Delete</button></td>`;
+        adminTbody.appendChild(tr);
+      });
+      // hook delete buttons
+      adminTbody.querySelectorAll('button.danger').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          if(!confirm('Delete this registration?')) return;
+          const id = btn.dataset.id;
+          const all = loadRegs().filter(rr => rr.id !== id);
+          saveRegs(all);
+          updateSummary();
+          renderAdminList(adminSearch.value);
+        });
+      });
+    }
+  }
+
+  function updateSummary(){
+    const regs = loadRegs();
+    totalRegsEl.textContent = regs.length;
+    // distinct sports in regs
+    const set = new Set();
+    regs.forEach(r=> r.sports.forEach(s => set.add(s)));
+    distinctSportsEl.textContent = set.size;
+  }
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m] });
+  }
+
+  // CSV export
+  function exportCSV(){
+    const regs = loadRegs();
+    if(regs.length===0){ alert('No registrations to export'); return; }
+    const headers = ['id','name','roll','email','sports','when'];
+    const rows = regs.map(r => headers.map(h => `"${String(r[h] instanceof Array ? r[h].join(';') : r[h]||'').replace(/"/g,'""')}"`).join(','));
+    const csv = [headers.join(',')].concat(rows).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'registrations.csv'; a.click(); URL.revokeObjectURL(url);
+  }
+
+  // CSV import (simple)
+  function importCSV(file){
+    const reader = new FileReader();
+    
+    // Add buttons for file operations
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn secondary';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.onclick = () => reader.abort();
+
+    const retryBtn = document.createElement('button'); 
+    retryBtn.className = 'btn';
+    retryBtn.textContent = 'Retry';
+    retryBtn.onclick = () => reader.readAsText(file);
+
+    // Add them to the page
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'admin-tools';
+    buttonContainer.append(cancelBtn, retryBtn);
+    document.getElementById('adminCard').appendChild(buttonContainer);
+    reader.onload = e => {
+      const text = e.target.result;
+      const lines = text.split(/\\r?\\n/).map(l=>l.trim()).filter(Boolean);
+      if(lines.length < 2) return alert('CSV looks empty or invalid.');
+      const headers = lines[0].split(',').map(h=>h.replace(/^\"|\"$/g,'').trim());
+      const arr = [];
+      for(let i=1;i<lines.length;i++){
+        const cols = parseCSVLine(lines[i]);
+        const obj = {};
+        headers.forEach((h,idx)=> obj[h]=cols[idx] ? cols[idx].replace(/^"|"$/g,'') : '');
+        // map to our format
+        if(!obj.name) continue;
+        arr.push({
+          id: uid(),
+          name: obj.name || '',
+          roll: obj.roll || '',
+          email: obj.email || '',
+          sports: (obj.sports || '').split(';').map(s=>s.trim()).filter(Boolean),
+          when: obj.when || new Date().toISOString()
+        });
+      }
+      const existing = loadRegs();
+      const merged = existing.concat(arr);
+      saveRegs(merged);
+      updateSummary();
+      renderAdminList();
+      alert('Imported ' + arr.length + ' registrations (duplicates not deduped)');
+    };
+    reader.readAsText(file);
+  }
+
+  // very basic CSV line parser that handles quoted commas
+  function parseCSVLine(line){
+    const out = [];
+    let cur = '', inQuotes = false;
+    for(let i=0;i<line.length;i++){
+      const ch = line[i];
+      if(ch === '"' ){ inQuotes = !inQuotes; cur += ch; continue; }
+      if(ch === ',' && !inQuotes){ out.push(cur); cur=''; continue; }
+      cur += ch;
+    }
+    out.push(cur);
+    return out;
+  }
+
+  // handlers
+  regForm.addEventListener('submit', function(e){
+    e.preventDefault();
+    const name = studentName.value.trim();
+    const roll = studentRoll.value.trim();
+    const email = studentEmail.value.trim();
+    const selected = getSelectedSports();
+    if(!name || !roll || !email) return alert('Please fill name, roll and email.');
+    if(selected.length === 0) {
+      if(!confirm('You did not select any sport. Submit anyway?')) return;
+    }
+    const regs = loadRegs();
+    regs.push({
+      id: uid(),
+      name, roll, email,
+      sports: selected.map(s=>s.name),
+      fees: selected.reduce((a,s)=>a + Number(s.fee||0), 0),
+      when: new Date().toISOString()
+    });
+    saveRegs(regs);
+    updateSummary();
+    renderAdminList(adminSearch.value);
+    alert('Registration saved!');
+    regForm.reset();
+    updateTotal();
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', ()=> setTimeout(()=> updateTotal(), 10));
+
+  // toggle admin
+  let isAdminView = false;
+  toggleViewBtn.addEventListener('click', ()=>{
+    isAdminView = !isAdminView;
+    adminCard.style.display = isAdminView ? 'block' : 'none';
+    toggleViewBtn.textContent = isAdminView ? 'Switch to Student View' : 'Switch to Admin View';
+    // scroll to admin when opening
+    if(isAdminView) adminCard.scrollIntoView({behavior:'smooth'});
+  });
+
+  // search in admin
+  adminSearch.addEventListener('input', ()=> renderAdminList(adminSearch.value));
+
+  exportCsvBtn.addEventListener('click', exportCSV);
+
+  clearAllBtn.addEventListener('click', ()=>{
+    if(!confirm('Clear ALL registrations? This cannot be undone.')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    updateSummary();
+    renderAdminList();
+  });
+
+  importBtn.addEventListener('click', ()=> csvFileInput.click());
+  csvFileInput.addEventListener('change', (e)=>{
+    const f = e.target.files[0];
+    if(f) importCSV(f);
+    e.target.value = '';
+  });
+
+  // admin delete handled in renderAdminList
+
+  // initial render
+  function init(){
+    renderSports();
+    renderUpcoming();
+    renderCheckboxes();
+    updateTotal();
+    updateSummary();
+    renderAdminList();
+  }
+  init();
+
+  // helper to update if user picks checkboxes manually
+  sportCheckboxes.addEventListener('change', updateTotal);
+
+  // small polyfill: recompute summary periodically (in case other tabs changed localStorage)
+  window.addEventListener('storage', () => { updateSummary(); renderAdminList(adminSearch.value); });
+
+</script>
+</body>
+</html>
